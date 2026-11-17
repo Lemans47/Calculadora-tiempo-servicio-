@@ -1,0 +1,21 @@
+{
+  "name": "Calculadora DAN 121",
+  "short_name": "DAN 121",
+  "description": "Tiempo de vuelo, períodos de servicio de vuelo y descansos de tripulantes según la DAN 121, sección 121.605.",
+  "lang": "es-CL",
+  "id": "/",
+  "start_url": "/?app=1",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0d1219",
+  "theme_color": "#0d1219",
+  "categories": ["productivity", "utilities", "travel"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

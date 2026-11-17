@@ -2,9 +2,26 @@
 
 Calculadora de **Tiempo de Vuelo (TV)**, **Período de Servicio de Vuelo (PSV)** y **períodos de descanso** de tripulantes de vuelo, según la DAN 121 (Ed. 3), secciones 121.1 y 121.605 (a) y (b).
 
+## Publicar en Vercel
+
+Es un sitio estático, sin compilación:
+
+1. En [vercel.com/new](https://vercel.com/new) importa este repositorio de GitHub.
+2. Framework Preset: **Other**. Deja vacíos Build Command y Output Directory.
+3. Pulsa **Deploy**. Cada push a la rama de producción vuelve a publicar.
+
+`vercel.json` define las cabeceras del service worker y del manifest.
+
+## Instalar como app (pantalla completa)
+
+- **iPhone / iPad (Safari):** Compartir → *Agregar a pantalla de inicio*. Se abre sin barras del navegador.
+- **Android (Chrome):** aparece el botón *Instalar app* en la página (o menú ⋮ → *Instalar app*). Se abre a pantalla completa.
+
+Una vez abierta, funciona sin conexión. El registro queda guardado en el teléfono; usa *Respaldo del registro → Guardar archivo* para copiarlo a Archivos, Drive o correo.
+
 ## Uso
 
-Abre `index.html` en el navegador (no requiere instalación). Ingresa la fecha, la hora de presentación, los tramos con sus horas de calzos y el término del PSV. Las horas son correlativas: si una hora es menor que la anterior se asume el día siguiente.
+Abre la app (o `index.html` en el navegador). Ingresa la fecha, la hora de presentación, los tramos con sus horas de calzos y el término del PSV. Las horas son correlativas: si una hora es menor que la anterior se asume el día siguiente.
 
 Guarda cada servicio en el **registro** para calcular los acumulados. El registro se conserva en el navegador y se puede respaldar o importar como texto JSON.
 

@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Calculadora DAN 121</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Calcula tiempo de vuelo, PSV, restricción nocturna, acumulados y descansos de tripulantes de vuelo según la DAN 121 (121.605).">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DAN 121">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="DAN 121">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1219" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -56,14 +69,23 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 15px/1.5 var(--f-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 48px;
+  padding-block: calc(20px + env(safe-area-inset-top, 0px)) calc(48px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
+/* En pantallas táctiles: 16 px evita el zoom automático de iOS al enfocar un campo */
+@media (pointer: coarse) {
+  input[type="date"], input[type="time"], input[type="text"], select, textarea { font-size: 16px !important; }
+  .btn { min-height: 40px; }
+}
+/* Instalada como app: la barra de estado de iOS queda sobre la página */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 .wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
 h1, h2, h3 { font-family: var(--f-display); font-weight: 600; letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
 h1 { font-size: 2.1rem; line-height: 1.05; }
@@ -244,6 +266,14 @@ details.backup[open] summary { margin-bottom: 10px; }
     <span class="badge-ref">DAN 121 · Ed. 3 · 121.605</span>
   </header>
 
+  <div class="notice" id="install" hidden>
+    <span id="install-text">Instala la calculadora en tu pantalla de inicio para abrirla a pantalla completa y sin conexión.</span>
+    <div class="actions">
+      <button type="button" class="btn small primary" id="btn-install" hidden>Instalar app</button>
+      <button type="button" class="btn small ghost" id="btn-install-no">Ahora no</button>
+    </div>
+  </div>
+
   <div class="grid">
     <!-- FORMULARIO -->
     <form class="panel" id="form" autocomplete="off" novalidate>
@@ -385,11 +415,16 @@ details.backup[open] summary { margin-bottom: 10px; }
     <details class="backup">
       <summary>Respaldo del registro</summary>
       <div style="display:grid;gap:10px">
-        <p class="hint">Copia el respaldo para guardarlo en otro lugar, o pega uno anterior y pulsa Importar.</p>
+        <p class="hint">Guarda el registro como archivo o como texto. Para recuperarlo, abre el archivo o pega el texto y pulsa Importar texto.</p>
+        <div class="actions">
+          <button type="button" class="btn small primary" id="btn-descargar">Guardar archivo</button>
+          <label class="btn small" for="f-archivo" style="font-weight:500;color:var(--ink);font-size:0.82rem;letter-spacing:0">Abrir archivo</label>
+          <input type="file" id="f-archivo" accept=".json,application/json,text/plain" hidden>
+        </div>
         <textarea id="backup-text" aria-label="Respaldo en formato JSON" spellcheck="false"></textarea>
         <div class="actions">
-          <button type="button" class="btn small" id="btn-copiar">Copiar respaldo</button>
-          <button type="button" class="btn small" id="btn-importar">Importar</button>
+          <button type="button" class="btn small" id="btn-copiar">Copiar texto</button>
+          <button type="button" class="btn small" id="btn-importar">Importar texto</button>
         </div>
         <p class="msg" id="backup-msg" role="status"></p>
       </div>
@@ -786,9 +821,9 @@ details.backup[open] summary { margin-bottom: 10px; }
     };
     try { navigator.clipboard.writeText(txt).then(ok, fallo); } catch (e) { fallo(); }
   });
-  $('btn-importar').addEventListener('click', function () {
+  function importar(texto) {
     try {
-      var data = JSON.parse($('backup-text').value);
+      var data = JSON.parse(texto);
       var reg = Array.isArray(data) ? data : data.registro;
       if (!Array.isArray(reg)) throw new Error();
       reg = reg.filter(function (e) { return e && e.fecha && Array.isArray(e.tramos); })
@@ -799,8 +834,41 @@ details.backup[open] summary { margin-bottom: 10px; }
       renderRegistro(); actualizar();
     } catch (e) {
       $('backup-msg').className = 'msg bad';
-      $('backup-msg').textContent = 'No se pudo leer el respaldo. Pega el texto completo que copiaste desde esta calculadora.';
+      $('backup-msg').textContent = 'No se pudo leer el respaldo. Usa un archivo o texto guardado desde esta calculadora.';
     }
+  }
+  $('btn-importar').addEventListener('click', function () { importar($('backup-text').value); });
+  $('f-archivo').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { importar(String(r.result)); };
+    r.readAsText(f);
+    this.value = '';
+  });
+  $('btn-descargar').addEventListener('click', function () {
+    var txt = textoRespaldo();
+    var nombre = 'dan121-registro-' + new Date().toISOString().slice(0, 10) + '.json';
+    var listo = function () { $('backup-msg').className = 'msg ok'; $('backup-msg').textContent = 'Respaldo guardado: ' + state.registro.length + ' servicios.'; };
+    var descargar = function () {
+      var url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = nombre;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      listo();
+    };
+    // En iPhone y Android instalados, la hoja de compartir permite guardar en Archivos, Drive, correo, etc.
+    try {
+      var file = new File([txt], nombre, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Registro DAN 121' }).then(listo, function (err) {
+          if (err && err.name !== 'AbortError') descargar();
+        });
+        return;
+      }
+    } catch (e) {}
+    descargar();
   });
 
   /* ---------- ejemplo ---------- */
@@ -837,6 +905,43 @@ details.backup[open] summary { margin-bottom: 10px; }
   }
   renderRegistro();
   actualizar();
+
+  /* ---------- app instalable ---------- */
+  var instalada = (window.matchMedia && (matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches)) || navigator.standalone === true;
+  var descartado = false;
+  try { descartado = localStorage.getItem('dan121.install.no') === '1'; } catch (e) {}
+  var promptInstalar = null;
+  var ua = navigator.userAgent || '';
+  var esIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (!instalada && !descartado) {
+    if (esIOS) {
+      $('install-text').innerHTML = 'Para usarla como app a pantalla completa: toca <strong>Compartir</strong> en Safari y luego <strong>Agregar a pantalla de inicio</strong>.';
+      $('install').hidden = false;
+    }
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      promptInstalar = e;
+      $('btn-install').hidden = false;
+      $('install').hidden = false;
+    });
+  }
+  $('btn-install').addEventListener('click', function () {
+    if (!promptInstalar) return;
+    promptInstalar.prompt();
+    promptInstalar.userChoice.finally(function () { promptInstalar = null; $('install').hidden = true; });
+  });
+  $('btn-install-no').addEventListener('click', function () {
+    $('install').hidden = true;
+    try { localStorage.setItem('dan121.install.no', '1'); } catch (e) {}
+  });
+  window.addEventListener('appinstalled', function () { $('install').hidden = true; });
+
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
 })();
 </script>
 </body>
