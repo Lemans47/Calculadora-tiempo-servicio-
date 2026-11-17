@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculadora DAN 121</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: panel de cabina — formulario a la izquierda, lectura de límites a la derecha, registro abajo */
+:root {
+  --bg: #eef1f5;
+  --surface: #ffffff;
+  --surface-2: #f6f8fb;
+  --ink: #131a24;
+  --muted: #5a6575;
+  --line: #d6dce5;
+  --accent: #b5156f;          /* magenta de ruta, como en los displays de navegación */
+  --accent-ink: #ffffff;
+  --night: #33407a;
+  --night-band: rgba(51, 64, 122, 0.13);
+  --ok: #1d7f47;
+  --ok-bg: #e3f3ea;
+  --warn: #9a5c00;
+  --warn-bg: #fdf0d8;
+  --fail: #b42323;
+  --fail-bg: #fbe4e4;
+  --info: #4b5868;
+  --info-bg: #eaedf2;
+  --focus: #b5156f;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1219; --surface: #141b25; --surface-2: #1a2330; --ink: #e5eaf1; --muted: #98a4b4;
+    --line: #273243; --accent: #ff5cb0; --accent-ink: #1a0a12; --night: #9fb0ff;
+    --night-band: rgba(140, 160, 255, 0.12);
+    --ok: #56c98f; --ok-bg: rgba(86, 201, 143, 0.14); --warn: #f2b13a; --warn-bg: rgba(242, 177, 58, 0.15);
+    --fail: #ff7474; --fail-bg: rgba(255, 116, 116, 0.15); --info: #a7b2c2; --info-bg: rgba(167, 178, 194, 0.12);
+    --focus: #ff5cb0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1219; --surface: #141b25; --surface-2: #1a2330; --ink: #e5eaf1; --muted: #98a4b4;
+  --line: #273243; --accent: #ff5cb0; --accent-ink: #1a0a12; --night: #9fb0ff;
+  --night-band: rgba(140, 160, 255, 0.12);
+  --ok: #56c98f; --ok-bg: rgba(86, 201, 143, 0.14); --warn: #f2b13a; --warn-bg: rgba(242, 177, 58, 0.15);
+  --fail: #ff7474; --fail-bg: rgba(255, 116, 116, 0.15); --info: #a7b2c2; --info-bg: rgba(167, 178, 194, 0.12);
+  --focus: #ff5cb0; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; letter-spacing: 0.01em; margin: 0; text-wrap: balance; }
+h1 { font-size: 2.1rem; line-height: 1.05; }
+h2 { font-size: 1.35rem; }
+h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-family: var(--f-body); font-weight: 600; }
+p { margin: 0; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+header.top .sub { color: var(--muted); max-width: 60ch; margin-top: 6px; }
+.badge-ref { font-family: var(--f-mono); font-size: 0.78rem; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* formulario */
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+label, .label { font-size: 0.78rem; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.hint { font-size: 0.78rem; color: var(--muted); }
+input[type="date"], input[type="time"], input[type="text"], select, textarea {
+  width: 100%; min-width: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 8px 10px; font-family: var(--f-mono); font-size: 0.95rem;
+}
+textarea { font-size: 0.8rem; min-height: 110px; resize: vertical; }
+input:hover, select:hover, textarea:hover { border-color: var(--muted); }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 8px 10px; text-align: center; cursor: pointer; color: var(--muted); font-size: 0.86rem; background: var(--surface-2); }
+.seg label:last-of-type { border-left: 1px solid var(--line); }
+.seg input:checked + label { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + label { outline: 2px solid var(--focus); outline-offset: -2px; }
+.seg small { display: block; font-size: 0.72rem; opacity: 0.85; }
+
+.check { font-weight: 400; color: var(--ink); letter-spacing: 0; font-size: 0.9rem; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; }
+.check input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--accent); }
+.check span { font-size: 0.9rem; }
+.check .hint { grid-column: 2; }
+
+.legs { display: grid; gap: 8px; }
+.leg { display: grid; grid-template-columns: 16px minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 30px; gap: 6px; align-items: center; }
+.leg .n { font-family: var(--f-mono); font-size: 0.78rem; color: var(--muted); text-align: right; }
+.leg input[type="text"] { text-transform: uppercase; padding: 7px 6px; }
+.leg input[type="time"] { padding: 7px 4px; font-size: 0.88rem; }
+.leg-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.leg-head span:first-child { visibility: hidden; }
+@media (max-width: 520px) {
+  .leg { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 1fr) 30px; row-gap: 4px; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+  .leg .l-s { grid-column: 2; grid-row: 2; }
+  .leg .l-l { grid-column: 3; grid-row: 2; }
+  .leg-head { display: none; }
+  .leg input[type="time"] { font-size: 0.95rem; }
+  .legs::before { content: "Origen · Destino / calzos salida · llegada"; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+}
+.icon-btn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); line-height: 1; }
+.icon-btn:hover { color: var(--fail); border-color: var(--fail); }
+
+.btn { border-radius: 8px; padding: 9px 14px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-weight: 500; font-size: 0.9rem; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--fail); }
+.btn.small { padding: 5px 10px; font-size: 0.82rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* resultados */
+.verdict { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px 20px; align-items: center; border-radius: 9px; padding: 14px 16px; }
+.verdict.ok { background: var(--ok-bg); }
+.verdict.atencion { background: var(--warn-bg); }
+.verdict.excede { background: var(--fail-bg); }
+.verdict .state { font-family: var(--f-display); font-size: 1.7rem; font-weight: 700; line-height: 1.05; }
+.verdict.ok .state { color: var(--ok); }
+.verdict.atencion .state { color: var(--warn); }
+.verdict.excede .state { color: var(--fail); }
+.verdict .why { font-size: 0.88rem; color: var(--ink); margin-top: 3px; }
+.readouts { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 22px; }
+.readout .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+.readout .v { font-family: var(--f-display); font-size: 1.9rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .verdict { grid-template-columns: minmax(0, 1fr); }
+  .readouts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.errors { border: 1px solid var(--fail); background: var(--fail-bg); color: var(--ink); border-radius: 9px; padding: 12px 14px; }
+.errors ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* línea de tiempo */
+.timeline { display: grid; gap: 6px; }
+.tl-track { position: relative; height: 64px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.tl-night { position: absolute; top: 0; bottom: 0; background: var(--night-band); border-left: 1px dashed var(--night); border-right: 1px dashed var(--night); }
+.tl-night span { position: absolute; top: 3px; left: 5px; font-size: 0.66rem; color: var(--night); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.tl-psv { position: absolute; top: 22px; height: 34px; border: 1.5px solid var(--accent); border-radius: 6px; }
+.tl-leg { position: absolute; top: 27px; height: 24px; background: var(--accent); border-radius: 4px; color: var(--accent-ink); font-size: 0.66rem; font-family: var(--f-mono); display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; }
+.tl-axis { position: relative; height: 16px; font-family: var(--f-mono); font-size: 0.68rem; color: var(--muted); }
+.tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tl-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.76rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* controles */
+.group { display: grid; gap: 0; }
+.group h3 { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(150px, 210px); gap: 6px 14px; padding: 11px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.row:last-child { border-bottom: 0; }
+.row .t { font-weight: 600; font-size: 0.92rem; }
+.row .d { font-size: 0.83rem; color: var(--muted); margin-top: 2px; }
+.row .ref { font-family: var(--f-mono); font-size: 0.7rem; color: var(--accent); margin-top: 4px; }
+.row .meter { display: grid; gap: 5px; justify-items: end; }
+.row .val { font-family: var(--f-mono); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.row .val b { font-weight: 500; }
+.row .val small { color: var(--muted); }
+.bar { width: 100%; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 3px; }
+@media (max-width: 560px) {
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .row .meter { justify-items: start; }
+}
+
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; white-space: nowrap; justify-self: start; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); background: var(--ok-bg); }
+.pill.atencion { color: var(--warn); background: var(--warn-bg); }
+.pill.excede { color: var(--fail); background: var(--fail-bg); }
+.pill.info { color: var(--info); background: var(--info-bg); }
+.fill-ok { background: var(--ok); } .fill-atencion { background: var(--warn); } .fill-excede { background: var(--fail); } .fill-info { background: var(--info); }
+
+/* tira de días */
+.strip-wrap { overflow-x: auto; }
+.strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(46px, 1fr); gap: 4px; min-width: max-content; }
+.day { border: 1px solid var(--line); border-radius: 7px; padding: 6px 4px; text-align: center; display: grid; gap: 2px; background: var(--surface); }
+.day .dw { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.day .dn { font-family: var(--f-display); font-size: 1.1rem; font-weight: 600; line-height: 1; }
+.day .dt { font-family: var(--f-mono); font-size: 0.68rem; color: var(--muted); }
+.day.work { background: var(--surface-2); }
+.day.work .dt { color: var(--ink); }
+.day.current { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.day.off .dt { color: var(--ok); }
+
+/* registro */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: middle; }
+th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); background: var(--surface-2); font-weight: 600; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.editing { background: var(--surface-2); }
+td.num, th.num { text-align: right; }
+td .route { font-family: var(--f-mono); font-size: 0.8rem; }
+.empty { padding: 26px; text-align: center; color: var(--muted); }
+.notice { border: 1px dashed var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 0.86rem; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.86rem; }
+.msg { font-size: 0.84rem; color: var(--muted); }
+.msg.ok { color: var(--ok); } .msg.bad { color: var(--fail); }
+
+details.backup summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; }
+details.backup[open] summary { margin-bottom: 10px; }
+
+.criteria { font-size: 0.86rem; color: var(--muted); display: grid; gap: 8px; }
+.criteria ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; max-width: 95ch; }
+.criteria strong { color: var(--ink); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Calculadora DAN 121</h1>
+      <p class="sub">Tiempo de Vuelo, Período de Servicio de Vuelo y descansos de tripulantes de vuelo según la sección 121.605.</p>
+    </div>
+    <span class="badge-ref">DAN 121 · Ed. 3 · 121.605</span>
+  </header>
+
+  <div class="grid">
+    <!-- FORMULARIO -->
+    <form class="panel" id="form" autocomplete="off" novalidate>
+      <div class="panel-head">
+        <h2 id="form-title">Período de servicio</h2>
+        <button type="button" class="btn ghost small" id="btn-nuevo">Nuevo PSV</button>
+      </div>
+
+      <div class="fields">
+        <div class="field">
+          <label for="f-fecha">Fecha de presentación</label>
+          <input type="date" id="f-fecha" required>
+        </div>
+        <div class="field">
+          <label for="f-pres">Presentación</label>
+          <input type="time" id="f-pres" required>
+        </div>
+        <div class="field full">
+          <span class="label">Jornada</span>
+          <div class="seg" role="radiogroup" aria-label="Jornada">
+            <input type="radio" name="jornada" id="j-ord" value="ordinaria" checked>
+            <label for="j-ord">Ordinaria<small>PSV 12 h · TV 8 h</small></label>
+            <input type="radio" name="jornada" id="j-esp" value="especial">
+            <label for="j-esp">Especial<small>PSV 20 h · reforzada</small></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="legs" id="legs">
+        <div class="leg leg-head" aria-hidden="true"><span>#</span><span>Origen</span><span>Destino</span><span>Calzos sal.</span><span>Calzos lleg.</span><span></span></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn small" id="btn-add-leg">+ Agregar tramo</button>
+      </div>
+
+      <div class="fields">
+        <div class="field">
+          <label for="f-fin">Término del PSV</label>
+          <input type="time" id="f-fin">
+          <span class="hint">Vacío: llegada a calzos del último tramo.</span>
+        </div>
+        <div class="field">
+          <label for="f-prev">Servicio previo (h:mm)</label>
+          <input type="text" id="f-prev" inputmode="numeric" placeholder="0:00">
+          <span class="hint">Se suma al PSV · (b)(1)(vii)</span>
+        </div>
+        <div class="field full">
+          <label for="f-mando">Horas al mando de controles por piloto (h:mm, opcional)</label>
+          <input type="text" id="f-mando" inputmode="numeric" placeholder="—">
+        </div>
+      </div>
+
+      <label class="check" for="f-min">
+        <input type="checkbox" id="f-min" checked>
+        <span>Tripulación de vuelo mínima</span>
+        <span class="hint">Activa la reducción de 30 min de TV por cada aterrizaje sobre 5.</span>
+      </label>
+      <label class="check" for="f-cont">
+        <input type="checkbox" id="f-cont">
+        <span>Contingencia: meteorología, emergencia médica, MEL o seguridad</span>
+        <span class="hint">Permite extender la jornada ordinaria de 12 a 14 h si el PSV tiene dos o más vuelos y no toca el período 21:00–06:00.</span>
+      </label>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="btn-save">Guardar en el registro</button>
+        <button type="button" class="btn ghost" id="btn-cancel" hidden>Cancelar edición</button>
+      </div>
+      <p class="msg" id="form-msg" role="status"></p>
+    </form>
+
+    <!-- RESULTADOS -->
+    <section class="panel" id="results" aria-live="polite">
+      <div id="res-errors" class="errors" hidden></div>
+      <div id="res-body">
+        <div class="verdict" id="verdict">
+          <div>
+            <div class="state" id="v-state"></div>
+            <p class="why" id="v-why"></p>
+          </div>
+          <div class="readouts">
+            <div class="readout"><div class="k">PSV</div><div class="v" id="r-psv"></div></div>
+            <div class="readout"><div class="k">TV</div><div class="v" id="r-tv"></div></div>
+            <div class="readout"><div class="k">Aterrizajes</div><div class="v" id="r-ldg"></div></div>
+            <div class="readout"><div class="k">Nocturno</div><div class="v" id="r-night"></div></div>
+          </div>
+        </div>
+
+        <div class="timeline" style="margin-top:16px">
+          <div class="tl-track" id="tl-track"></div>
+          <div class="tl-axis" id="tl-axis"></div>
+          <div class="legend">
+            <span><i style="border:1.5px solid var(--accent)"></i>PSV</span>
+            <span><i style="background:var(--accent)"></i>Tiempo de vuelo entre calzos</span>
+            <span><i style="background:var(--night-band);border:1px dashed var(--night)"></i>Período nocturno 21:00–06:00</span>
+          </div>
+        </div>
+
+        <div class="group" style="margin-top:18px"><h3>Este período de servicio</h3><div id="g-psv"></div></div>
+        <div class="group" style="margin-top:18px"><h3>Acumulados de tiempo de vuelo</h3><div id="g-acum"></div></div>
+        <div class="group" style="margin-top:18px">
+          <h3>Días de labores y descanso</h3>
+          <div class="strip-wrap" style="margin-top:12px"><div class="strip" id="strip"></div></div>
+          <div id="g-descanso"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- REGISTRO -->
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Registro de servicios</h2>
+        <p class="hint">Los acumulados (5 días, 6–10 días, mes, trimestre, año y descansos) se calculan con lo que guardes aquí. Se conserva en este navegador.</p>
+      </div>
+      <div class="actions" id="reg-actions">
+        <button type="button" class="btn small" id="btn-ejemplo">Cargar ejemplo</button>
+        <button type="button" class="btn small danger" id="btn-vaciar">Vaciar registro</button>
+      </div>
+    </div>
+    <div class="confirm" id="confirm-vaciar" hidden>
+      <span>¿Borrar todos los servicios del registro?</span>
+      <button type="button" class="btn small danger" id="btn-vaciar-si">Sí, borrar</button>
+      <button type="button" class="btn small ghost" id="btn-vaciar-no">Cancelar</button>
+    </div>
+    <div class="notice" id="ejemplo-notice" hidden>
+      <span>Estás viendo <strong>datos de ejemplo</strong>, no un rol real. Vacía el registro para empezar con tus vuelos.</span>
+      <button type="button" class="btn small" id="btn-vaciar-ej">Vaciar y empezar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Estado</th><th>Fecha</th><th>Servicio</th><th>Ruta</th><th class="num">PSV</th><th class="num">TV</th><th class="num">Ldg</th><th class="num">Noche</th><th>Jornada</th><th></th></tr>
+        </thead>
+        <tbody id="reg-body"></tbody>
+      </table>
+    </div>
+
+    <details class="backup">
+      <summary>Respaldo del registro</summary>
+      <div style="display:grid;gap:10px">
+        <p class="hint">Copia el respaldo para guardarlo en otro lugar, o pega uno anterior y pulsa Importar.</p>
+        <textarea id="backup-text" aria-label="Respaldo en formato JSON" spellcheck="false"></textarea>
+        <div class="actions">
+          <button type="button" class="btn small" id="btn-copiar">Copiar respaldo</button>
+          <button type="button" class="btn small" id="btn-importar">Importar</button>
+        </div>
+        <p class="msg" id="backup-msg" role="status"></p>
+      </div>
+    </details>
+  </section>
+
+  <section class="panel criteria">
+    <h2 style="color:var(--ink)">Criterios aplicados</h2>
+    <ul>
+      <li><strong>PSV:</strong> desde la presentación hasta el término indicado. Jornada ordinaria 12 h; especial 20 h. Con contingencia y dos o más vuelos se admite 14 h, salvo que alguna parte del PSV caiga entre 21:00 y 06:00 o se haya iniciado en ese horario.</li>
+      <li><strong>TV:</strong> suma de tramos entre calzos. En jornada ordinaria 8 h, menos 30 min por cada aterrizaje sobre 5 si la tripulación es mínima.</li>
+      <li><strong>Período nocturno:</strong> porcentaje del tramo 21:00–06:00 cubierto por el PSV. Tras un PSV que supera el 50 %, solo se admite un segundo PSV nocturno consecutivo, de hasta 50 %. Se consideran consecutivos si no hay un día calendario libre entre ambos.</li>
+      <li><strong>Acumulados:</strong> el TV de un tramo que cruza la medianoche se reparte entre ambos días. 34 h en cualquier ventana de 5 días; 68 h cuando la actividad dura de 6 a 10 días seguidos; 100 h por mes, 270 h por trimestre y 1.000 h por año calendario.</li>
+      <li><strong>Días de labores:</strong> cada día calendario que toca un período de servicio. Hasta 5 días seguidos exigen 2 días de descanso; de 6 a 10 días, 4 días.</li>
+      <li>Herramienta de apoyo basada en el extracto de la DAN 121 (121.1 y 121.605 (a) y (b)). No incluye los límites de tripulantes de cabina ni el Código del Trabajo. Verifica siempre con el texto vigente y con tu operador.</li>
+    </ul>
+  </section>
+</div>
+
+<script src="calc.js"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.DAN121;
+  var hm = D.hm;
+  var KEY = 'dan121.calculadora.v1';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = { registro: [], editando: null, ejemplo: false };
+
+  /* ---------- almacenamiento ---------- */
+  function guardar() {
+    try { localStorage.setItem(KEY, JSON.stringify({ registro: state.registro, ejemplo: state.ejemplo, borrador: leerFormulario() })); } catch (e) {}
+  }
+  function cargar() {
+    try { var raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+
+  /* ---------- utilidades ---------- */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function uid() { return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function parseDur(str) {
+    str = String(str || '').trim();
+    if (!str) return null;
+    var m = /^(\d{1,3})(?::(\d{1,2}))?$/.exec(str);
+    if (!m) return NaN;
+    var mi = m[2] ? +m[2] : 0;
+    if (mi > 59) return NaN;
+    return +m[1] * 60 + mi;
+  }
+  function durTxt(min) { return min == null ? '' : hm(min).replace(/^0(\d:)/, '$1'); }
+  var DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  var ETIQUETA = { ok: 'Cumple', atencion: 'Atención', excede: 'Excede', info: 'Info' };
+
+  /* ---------- tramos ---------- */
+  function filaTramo(t) {
+    t = t || {};
+    var div = document.createElement('div');
+    div.className = 'leg';
+    div.innerHTML =
+      '<span class="n"></span>' +
+      '<input type="text" maxlength="4" class="l-o" aria-label="Origen" placeholder="SCL" value="' + esc(t.origen) + '">' +
+      '<input type="text" maxlength="4" class="l-d" aria-label="Destino" placeholder="ANF" value="' + esc(t.destino) + '">' +
+      '<input type="time" class="l-s" aria-label="Salida de calzos" value="' + esc(t.salida) + '">' +
+      '<input type="time" class="l-l" aria-label="Llegada a calzos" value="' + esc(t.llegada) + '">' +
+      '<button type="button" class="icon-btn" aria-label="Quitar tramo" title="Quitar tramo">✕</button>';
+    div.querySelector('button').addEventListener('click', function () { div.remove(); numerar(); actualizar(); });
+    return div;
+  }
+  function numerar() {
+    var rows = $('legs').querySelectorAll('.leg:not(.leg-head)');
+    rows.forEach(function (r, i) {
+      r.querySelector('.n').textContent = i + 1;
+      ['l-o', 'l-d', 'l-s', 'l-l'].forEach(function (c) { r.querySelector('.' + c).id = 'leg' + i + '-' + c; });
+    });
+  }
+  function agregarTramo(t) {
+    var rows = $('legs').querySelectorAll('.leg:not(.leg-head)');
+    if (!t && rows.length) {
+      var last = rows[rows.length - 1];
+      t = { origen: last.querySelector('.l-d').value };
+    }
+    $('legs').appendChild(filaTramo(t));
+    numerar();
+  }
+
+  /* ---------- formulario ---------- */
+  function leerFormulario() {
+    var tramos = [];
+    $('legs').querySelectorAll('.leg:not(.leg-head)').forEach(function (r) {
+      tramos.push({
+        origen: r.querySelector('.l-o').value.trim().toUpperCase(),
+        destino: r.querySelector('.l-d').value.trim().toUpperCase(),
+        salida: r.querySelector('.l-s').value,
+        llegada: r.querySelector('.l-l').value
+      });
+    });
+    return {
+      id: state.editando || '__actual__',
+      fecha: $('f-fecha').value,
+      presentacion: $('f-pres').value,
+      fin: $('f-fin').value,
+      tramos: tramos,
+      jornada: $('j-esp').checked ? 'especial' : 'ordinaria',
+      tripulacionMinima: $('f-min').checked,
+      contingencia: $('f-cont').checked,
+      servicioPrevio: parseDur($('f-prev').value) || 0,
+      servicioPrevioTxt: $('f-prev').value,
+      alMando: parseDur($('f-mando').value),
+      alMandoTxt: $('f-mando').value
+    };
+  }
+  function escribirFormulario(e) {
+    $('f-fecha').value = e.fecha || '';
+    $('f-pres').value = e.presentacion || '';
+    $('f-fin').value = e.fin || '';
+    $('j-esp').checked = e.jornada === 'especial';
+    $('j-ord').checked = e.jornada !== 'especial';
+    $('f-min').checked = e.tripulacionMinima !== false;
+    $('f-cont').checked = !!e.contingencia;
+    $('f-prev').value = e.servicioPrevioTxt != null ? e.servicioPrevioTxt : (e.servicioPrevio ? durTxt(e.servicioPrevio) : '');
+    $('f-mando').value = e.alMandoTxt != null ? e.alMandoTxt : (e.alMando != null ? durTxt(e.alMando) : '');
+    $('legs').querySelectorAll('.leg:not(.leg-head)').forEach(function (r) { r.remove(); });
+    (e.tramos && e.tramos.length ? e.tramos : [{}]).forEach(function (t) { $('legs').appendChild(filaTramo(t)); });
+    numerar();
+  }
+
+  function limpiarEntrada(e) {
+    var c = JSON.parse(JSON.stringify(e));
+    delete c.servicioPrevioTxt; delete c.alMandoTxt;
+    return c;
+  }
+
+  /* ---------- render de resultados ---------- */
+  function construirRegistro(excluirId) {
+    return state.registro.filter(function (e) { return e.id !== excluirId; }).map(D.construir).filter(function (s) { return !s.errores; });
+  }
+
+  function actualizar() {
+    var entrada = leerFormulario();
+    var errs = [];
+    if (isNaN(entrada.servicioPrevio)) errs.push('El servicio previo debe tener el formato h:mm.');
+    if (entrada.alMando !== null && isNaN(entrada.alMando)) errs.push('Las horas al mando deben tener el formato h:mm.');
+    var s = D.construir(entrada);
+    if (s.errores) errs = errs.concat(s.errores);
+    if (!errs.length && s.esVuelo) {
+      s.piernas.forEach(function (p, i) { if (p.duracion <= 0) errs.push('El tramo ' + (i + 1) + ' no tiene duración.'); });
+    }
+    if (!errs.length && !s.esVuelo) errs.push('Agrega al menos un tramo con sus horas de calzos.');
+    if (!errs.length && s.fin < s.piernas[s.piernas.length - 1].llegada) errs.push('El término del PSV es anterior a la llegada del último tramo.');
+    if (!errs.length && s.psv > 24 * 60) errs.push('El PSV supera las 24 horas: revisa las horas.');
+
+    $('res-errors').hidden = !errs.length;
+    $('res-body').hidden = !!errs.length;
+    if (errs.length) {
+      $('res-errors').innerHTML = '<strong>Faltan datos para calcular</strong><ul>' + errs.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>';
+      guardar();
+      return;
+    }
+
+    var otros = construirRegistro(state.editando);
+    var ev = D.evaluar(s, otros);
+    renderVeredicto(ev);
+    renderTimeline(s);
+    renderGrupo('g-psv', ev.controles.filter(function (c) { return c.grupo === 'psv'; }));
+    renderGrupo('g-acum', ev.controles.filter(function (c) { return c.grupo === 'acum'; }));
+    renderGrupo('g-descanso', ev.controles.filter(function (c) { return c.grupo === 'descanso'; }));
+    renderTira(s, otros);
+    guardar();
+  }
+
+  function renderVeredicto(ev) {
+    var s = ev.servicio;
+    var v = $('verdict');
+    v.className = 'verdict ' + ev.resultado;
+    var malos = ev.controles.filter(function (c) { return c.estado === 'excede'; });
+    var obs = ev.controles.filter(function (c) { return c.estado === 'atencion'; });
+    $('v-state').textContent = ev.resultado === 'excede' ? 'Excede un límite' : ev.resultado === 'atencion' ? 'Cumple, con observaciones' : 'Cumple con la norma';
+    var why;
+    if (malos.length) why = 'Revisa: ' + malos.map(function (c) { return c.titulo.toLowerCase(); }).join(', ') + '.';
+    else if (obs.length) why = 'Cerca del límite o con condiciones: ' + obs.map(function (c) { return c.titulo.toLowerCase(); }).join(', ') + '.';
+    else why = 'Todos los límites de 121.605 se cumplen con el registro actual.';
+    $('v-why').textContent = why;
+    $('r-psv').textContent = hm(s.psv + s.servicioPrevio);
+    $('r-tv').textContent = hm(s.tv);
+    $('r-ldg').textContent = s.aterrizajes;
+    $('r-night').textContent = Math.round(s.nochePct * 100) + '%';
+  }
+
+  function renderTimeline(s) {
+    var t0 = Math.floor(s.inicio / 60) * 60 - 60;
+    var t1 = Math.ceil(s.fin / 60) * 60 + 60;
+    var span = t1 - t0;
+    var pct = function (t) { return ((t - t0) / span * 100).toFixed(3) + '%'; };
+    var html = '';
+    var horas = span / 60;
+    var paso = horas <= 8 ? 1 : horas <= 14 ? 2 : 3;
+    var axis = '';
+    for (var t = t0; t <= t1; t += 60) {
+      html += '<div class="tl-grid" style="left:' + pct(t) + '"></div>';
+      var h = D.horaDelDia(t) / 60;
+      if (((t - t0) / 60) % paso === 0 && t > t0 && t < t1) axis += '<span style="left:' + pct(t) + '">' + (h < 10 ? '0' : '') + h + ':00</span>';
+    }
+    D.nochesTocadas(t0, t1).forEach(function (n) {
+      var a = Math.max(n.inicio, t0), b = Math.min(n.fin, t1);
+      html += '<div class="tl-night" style="left:' + pct(a) + ';width:' + ((b - a) / span * 100).toFixed(3) + '%"><span>Noche</span></div>';
+    });
+    html += '<div class="tl-psv" style="left:' + pct(s.inicio) + ';width:' + ((s.fin - s.inicio) / span * 100).toFixed(3) + '%"></div>';
+    s.piernas.forEach(function (p) {
+      var w = (p.duracion / span * 100);
+      var lbl = p.origen && p.destino ? p.origen + '–' + p.destino : hm(p.duracion);
+      html += '<div class="tl-leg" style="left:' + pct(p.salida) + ';width:' + w.toFixed(3) + '%" title="' + esc(lbl + ' · ' + hm(D.horaDelDia(p.salida)) + '–' + hm(D.horaDelDia(p.llegada))) + '">' + (w > 9 ? esc(lbl) : '') + '</div>';
+    });
+    $('tl-track').innerHTML = html;
+    $('tl-axis').innerHTML = axis;
+  }
+
+  function valorTxt(c) {
+    if (c.texto) return '<b>' + esc(c.texto) + '</b>';
+    if (c.valor == null) return '';
+    if (c.unidad === 'dias') {
+      var v = c.valor + (c.valor === 1 ? ' día' : ' días');
+      if (c.limite == null) return '<b>' + v + '</b>';
+      return '<b>' + v + '</b> <small>' + (c.minimo ? 'mín. ' : 'máx. ') + c.limite + '</small>';
+    }
+    if (c.id === 'noche') return '<b>' + hm(c.valor) + '</b> <small>de 09:00</small>';
+    if (c.limite == null) return '<b>' + hm(c.valor) + '</b>';
+    return '<b>' + hm(c.valor) + '</b> <small>/ ' + hm(c.limite) + '</small>';
+  }
+
+  function barra(c) {
+    var lim = c.id === 'noche' ? 540 : c.limite;
+    if (c.valor == null || !lim) return '';
+    var r = c.minimo ? Math.min(1, c.valor / lim) : Math.min(1, c.valor / lim);
+    var cls = c.estado;
+    if (c.id === 'noche') cls = c.estado === 'info' ? 'info' : c.estado;
+    return '<div class="bar" aria-hidden="true"><i class="fill-' + cls + '" style="width:' + (r * 100).toFixed(1) + '%"></i></div>';
+  }
+
+  function renderGrupo(id, controles) {
+    $(id).innerHTML = controles.map(function (c) {
+      return '<div class="row">' +
+        '<span class="pill ' + c.estado + '">' + ETIQUETA[c.estado] + '</span>' +
+        '<div><div class="t">' + esc(c.titulo) + '</div><div class="d">' + esc(c.detalle) + '</div><div class="ref">' + esc(c.ref) + '</div></div>' +
+        '<div class="meter"><div class="val">' + valorTxt(c) + '</div>' + barra(c) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderTira(s, otros) {
+    var todos = otros.concat([s]);
+    var mapa = D.tvPorDia(todos);
+    var trab = {};
+    todos.forEach(function (x) { x.dias.forEach(function (d) { trab[d] = true; }); });
+    var actual = {};
+    s.dias.forEach(function (d) { actual[d] = true; });
+    var d0 = s.dias[0] - 10, d1 = s.dias[s.dias.length - 1] + 4;
+    var html = '';
+    for (var d = d0; d <= d1; d++) {
+      var dt = new Date(d * D.DIA * 60000);
+      var cls = 'day' + (trab[d] ? ' work' : ' off') + (actual[d] ? ' current' : '');
+      var tv = mapa[d] ? hm(mapa[d]) : (trab[d] ? '0:00' : 'libre');
+      html += '<div class="' + cls + '" title="' + D.fechaLarga(d) + '"><span class="dw">' + DIAS[dt.getUTCDay()] + '</span><span class="dn">' + dt.getUTCDate() + '</span><span class="dt">' + tv + '</span></div>';
+    }
+    $('strip').innerHTML = html;
+  }
+
+  /* ---------- registro ---------- */
+  function renderRegistro() {
+    var construidos = state.registro.map(D.construir);
+    var validos = construidos.filter(function (s) { return !s.errores; });
+    var filas = construidos.map(function (s, i) { return { s: s, e: state.registro[i] }; })
+      .sort(function (a, b) { return (b.s.inicio || 0) - (a.s.inicio || 0); });
+    if (!filas.length) {
+      $('reg-body').innerHTML = '<tr><td colspan="10" class="empty">Aún no hay servicios guardados. Completa el formulario y pulsa <strong>Guardar en el registro</strong>.</td></tr>';
+    } else {
+      $('reg-body').innerHTML = filas.map(function (f) {
+        var s = f.s, e = f.e;
+        if (s.errores) {
+          return '<tr><td><span class="pill excede">Error</span></td><td colspan="8">' + esc(s.errores[0]) + '</td><td>' + botones(e.id) + '</td></tr>';
+        }
+        var ev = D.evaluar(s, validos);
+        var ruta = s.piernas.map(function (p, i) { return (i === 0 ? (p.origen || '···') : '') + '–' + (p.destino || '···'); }).join('');
+        return '<tr' + (state.editando === e.id ? ' class="editing"' : '') + '>' +
+          '<td><span class="pill ' + ev.resultado + '">' + ETIQUETA[ev.resultado] + '</span></td>' +
+          '<td class="mono">' + esc(e.fecha) + '</td>' +
+          '<td class="mono">' + hm(D.horaDelDia(s.inicio)) + '–' + hm(D.horaDelDia(s.fin)) + '</td>' +
+          '<td><span class="route">' + esc(ruta) + '</span></td>' +
+          '<td class="num mono">' + hm(s.psv + s.servicioPrevio) + '</td>' +
+          '<td class="num mono">' + hm(s.tv) + '</td>' +
+          '<td class="num mono">' + s.aterrizajes + '</td>' +
+          '<td class="num mono">' + Math.round(s.nochePct * 100) + '%</td>' +
+          '<td>' + (s.jornada === 'especial' ? 'Especial' : 'Ordinaria') + (s.contingencia ? ' · cont.' : '') + '</td>' +
+          '<td>' + botones(e.id) + '</td></tr>';
+      }).join('');
+    }
+    $('ejemplo-notice').hidden = !(state.ejemplo && state.registro.length);
+    $('btn-save').textContent = state.editando ? 'Actualizar servicio' : 'Guardar en el registro';
+    $('btn-cancel').hidden = !state.editando;
+    $('form-title').textContent = state.editando ? 'Editando servicio' : 'Período de servicio';
+  }
+  function botones(id) {
+    return '<div class="actions" style="flex-wrap:nowrap"><button type="button" class="btn small" data-edit="' + esc(id) + '">Editar</button>' +
+      '<button type="button" class="btn small ghost danger" data-del="' + esc(id) + '">Eliminar</button></div>';
+  }
+
+  $('reg-body').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    if (b.dataset.edit) {
+      var e = state.registro.find(function (x) { return x.id === b.dataset.edit; });
+      if (!e) return;
+      state.editando = e.id;
+      escribirFormulario(e);
+      $('form-msg').textContent = '';
+      renderRegistro(); actualizar();
+      $('form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (b.dataset.del) {
+      state.registro = state.registro.filter(function (x) { return x.id !== b.dataset.del; });
+      if (state.editando === b.dataset.del) { state.editando = null; }
+      renderRegistro(); actualizar();
+    }
+  });
+
+  $('form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var entrada = leerFormulario();
+    var s = D.construir(entrada);
+    if (s.errores || !s.esVuelo) {
+      $('form-msg').className = 'msg bad';
+      $('form-msg').textContent = 'Completa la fecha, la presentación y al menos un tramo antes de guardar.';
+      return;
+    }
+    var limpio = limpiarEntrada(entrada);
+    if (state.editando) {
+      limpio.id = state.editando;
+      state.registro = state.registro.map(function (x) { return x.id === state.editando ? limpio : x; });
+      $('form-msg').textContent = 'Servicio del ' + entrada.fecha + ' actualizado.';
+    } else {
+      limpio.id = uid();
+      state.registro.push(limpio);
+      $('form-msg').textContent = 'Servicio del ' + entrada.fecha + ' guardado en el registro.';
+    }
+    $('form-msg').className = 'msg ok';
+    state.editando = null;
+    nuevoDesde(entrada);
+    renderRegistro(); actualizar();
+  });
+
+  function nuevoDesde(prev) {
+    var f = prev && prev.fecha ? D.diaISO(D.dia(D.parseFecha(prev.fecha)) + 1) : new Date().toISOString().slice(0, 10);
+    escribirFormulario({ fecha: f, presentacion: '', fin: '', tramos: [{}], jornada: 'ordinaria', tripulacionMinima: true });
+  }
+
+  $('btn-nuevo').addEventListener('click', function () {
+    state.editando = null;
+    var ult = state.registro.slice().sort(function (a, b) { return a.fecha < b.fecha ? 1 : -1; })[0];
+    nuevoDesde(ult);
+    $('form-msg').textContent = '';
+    renderRegistro(); actualizar();
+  });
+  $('btn-cancel').addEventListener('click', function () {
+    state.editando = null; nuevoDesde(null); $('form-msg').textContent = ''; renderRegistro(); actualizar();
+  });
+  $('btn-add-leg').addEventListener('click', function () { agregarTramo(); actualizar(); });
+  $('form').addEventListener('input', actualizar);
+  $('form').addEventListener('change', actualizar);
+
+  function vaciar() {
+    state.registro = []; state.ejemplo = false; state.editando = null;
+    $('confirm-vaciar').hidden = true;
+    nuevoDesde(null);
+    renderRegistro(); actualizar();
+  }
+  $('btn-vaciar').addEventListener('click', function () { $('confirm-vaciar').hidden = false; });
+  $('btn-vaciar-no').addEventListener('click', function () { $('confirm-vaciar').hidden = true; });
+  $('btn-vaciar-si').addEventListener('click', vaciar);
+  $('btn-vaciar-ej').addEventListener('click', vaciar);
+  $('btn-ejemplo').addEventListener('click', function () { cargarEjemplo(); renderRegistro(); actualizar(); });
+
+  /* ---------- respaldo ---------- */
+  function textoRespaldo() { return JSON.stringify({ formato: 'dan121-registro', version: 1, registro: state.registro }, null, 1); }
+  document.querySelector('details.backup').addEventListener('toggle', function () {
+    if (this.open) $('backup-text').value = textoRespaldo();
+  });
+  $('btn-copiar').addEventListener('click', function () {
+    var txt = textoRespaldo();
+    $('backup-text').value = txt;
+    var ok = function () { $('backup-msg').className = 'msg ok'; $('backup-msg').textContent = 'Respaldo copiado: ' + state.registro.length + ' servicios.'; };
+    var fallo = function () {
+      $('backup-text').focus(); $('backup-text').select();
+      $('backup-msg').className = 'msg'; $('backup-msg').textContent = 'Texto seleccionado: cópialo con Ctrl+C o Copiar.';
+    };
+    try { navigator.clipboard.writeText(txt).then(ok, fallo); } catch (e) { fallo(); }
+  });
+  $('btn-importar').addEventListener('click', function () {
+    try {
+      var data = JSON.parse($('backup-text').value);
+      var reg = Array.isArray(data) ? data : data.registro;
+      if (!Array.isArray(reg)) throw new Error();
+      reg = reg.filter(function (e) { return e && e.fecha && Array.isArray(e.tramos); })
+        .map(function (e) { e = limpiarEntrada(e); e.id = e.id || uid(); return e; });
+      state.registro = reg; state.ejemplo = false; state.editando = null;
+      $('backup-msg').className = 'msg ok';
+      $('backup-msg').textContent = 'Importados ' + reg.length + ' servicios.';
+      renderRegistro(); actualizar();
+    } catch (e) {
+      $('backup-msg').className = 'msg bad';
+      $('backup-msg').textContent = 'No se pudo leer el respaldo. Pega el texto completo que copiaste desde esta calculadora.';
+    }
+  });
+
+  /* ---------- ejemplo ---------- */
+  function cargarEjemplo() {
+    var L = function (o, d, s, l) { return { origen: o, destino: d, salida: s, llegada: l }; };
+    var base = { jornada: 'ordinaria', tripulacionMinima: true, contingencia: false, servicioPrevio: 0, alMando: null };
+    var ej = [
+      { fecha: '2026-11-02', presentacion: '05:30', fin: '13:05', tramos: [L('SCL', 'CJC', '06:30', '08:40'), L('CJC', 'SCL', '09:25', '11:30'), L('SCL', 'LSC', '12:00', '12:50')] },
+      { fecha: '2026-11-03', presentacion: '06:15', fin: '15:20', tramos: [L('LSC', 'SCL', '07:15', '08:05'), L('SCL', 'IQQ', '09:00', '11:30'), L('IQQ', 'SCL', '12:15', '14:50')] },
+      { fecha: '2026-11-04', presentacion: '11:00', fin: '19:10', tramos: [L('SCL', 'PMC', '12:00', '13:45'), L('PMC', 'PUQ', '14:30', '16:40'), L('PUQ', 'SCL', '17:20', '18:40')] },
+      { fecha: '2026-11-05', presentacion: '07:00', fin: '12:40', tramos: [L('SCL', 'CCP', '08:00', '09:05'), L('CCP', 'SCL', '10:00', '11:05'), L('SCL', 'LSC', '11:30', '12:20')] },
+      { fecha: '2026-11-09', presentacion: '05:45', fin: '12:15', tramos: [L('SCL', 'ANF', '06:45', '08:50'), L('ANF', 'SCL', '09:40', '11:45')] },
+      { fecha: '2026-11-10', presentacion: '13:00', fin: '21:55', tramos: [L('SCL', 'IQQ', '14:00', '16:30'), L('IQQ', 'ARI', '17:10', '17:55'), L('ARI', 'SCL', '18:40', '21:25')] },
+      { fecha: '2026-11-11', presentacion: '21:30', fin: '06:35', tramos: [L('SCL', 'PUQ', '22:30', '01:55'), L('PUQ', 'SCL', '02:45', '06:05')] }
+    ];
+    state.registro = ej.map(function (e, i) { return Object.assign({ id: 'ej' + i }, base, e); });
+    state.ejemplo = true;
+    state.editando = null;
+    escribirFormulario(Object.assign({}, base, {
+      fecha: '2026-11-13', presentacion: '06:00', fin: '17:15',
+      tramos: [L('SCL', 'PMC', '07:00', '08:45'), L('PMC', 'PUQ', '09:30', '11:40'), L('PUQ', 'PMC', '12:30', '14:15'), L('PMC', 'SCL', '15:00', '16:45')]
+    }));
+  }
+
+  /* ---------- inicio ---------- */
+  var saved = cargar();
+  if (saved && Array.isArray(saved.registro)) {
+    state.registro = saved.registro;
+    state.ejemplo = !!saved.ejemplo;
+    if (saved.borrador) { var b = saved.borrador; b.id = undefined; escribirFormulario(b); }
+    else nuevoDesde(null);
+  } else {
+    cargarEjemplo();
+  }
+  renderRegistro();
+  actualizar();
+})();
+</script>
+</body>
+</html>
