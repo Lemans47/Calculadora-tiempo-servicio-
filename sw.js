@@ -1,5 +1,5 @@
 /* Service worker: la app funciona sin conexión una vez abierta. */
-const VERSION = 'dan121-v3';
+const VERSION = 'dan121-v4';
 const SHELL = [
   '/', '/index.html', '/calc.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png',

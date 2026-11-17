@@ -148,3 +148,22 @@ test('secuencia ubica cada tramo en su día, aun con campos vacíos', () => {
   assert.equal(D.dia(sq.tramos[2].llegada), d0 + 1);
   assert.equal(D.dia(sq.fin), d0 + 1);
 });
+
+test('Una hora que retrocede poco es un error, no el día siguiente', () => {
+  // Caso real: último tramo llega 18:20 y el término se ingresa 17:30
+  const e = { fecha: '2026-11-13', presentacion: '06:00', fin: '17:30',
+    tramos: [{ salida: '07:05', llegada: '09:05' }, { salida: '16:10', llegada: '18:20' }] };
+  const s = D.construir(e);
+  assert.ok(s.errores);
+  assert.match(s.errores[0], /término del PSV \(17:30\) es anterior a la llegada del tramo 2 \(18:20\)/);
+  const sq = D.secuencia(e);
+  assert.equal(sq.atras.fin, true);
+  assert.equal(D.dia(sq.fin), D.dia(D.parseFecha('2026-11-13')));
+  // Llegada antes que la salida
+  const r = D.construir({ fecha: '2026-11-13', presentacion: '06:00', tramos: [{ salida: '10:00', llegada: '09:30' }] });
+  assert.match(r.errores[0], /llegada del tramo 1 \(09:30\) es anterior a la salida del tramo 1/);
+  // Retroceso grande sí es medianoche
+  const n = D.construir({ fecha: '2026-11-13', presentacion: '22:00', tramos: [{ salida: '23:10', llegada: '01:05' }] });
+  assert.equal(n.errores, undefined);
+  assert.equal(n.tv, 115);
+});

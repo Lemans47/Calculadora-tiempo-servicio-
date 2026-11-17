@@ -133,15 +133,18 @@ input:hover, select:hover, textarea:hover { border-color: var(--muted); }
 .check .hint { grid-column: 2; }
 
 .legs { display: grid; gap: 8px; }
-.leg { display: grid; grid-template-columns: 16px minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 30px; gap: 6px; align-items: center; }
+.leg { display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 30px; gap: 6px; align-items: center; }
 .leg .n { font-family: var(--f-mono); font-size: 0.78rem; color: var(--muted); text-align: right; }
 .leg input[type="text"] { text-transform: uppercase; padding: 7px 6px; }
-.leg input[type="time"] { padding: 7px 4px; font-size: 0.88rem; }
+.hhmm { text-align: center; letter-spacing: 0.04em; }
+.hhmm.bad { border-color: var(--fail); background: var(--fail-bg); }
+.leg-day .warn, .fin-day .warn { color: var(--fail); font-family: var(--f-body); font-weight: 600; }
 .leg-day { grid-column: 2 / 6; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-family: var(--f-mono); font-size: 0.76rem; color: var(--muted); margin-top: -2px; }
 .leg-day:empty { display: none; }
 .leg-day .dd { color: var(--ink); }
 .leg-day .plus { color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; font-size: 0.7rem; font-family: var(--f-body); font-weight: 600; }
-.fin-day { font-family: var(--f-mono); font-size: 0.78rem; color: var(--ink); }
+.fin-day { font-family: var(--f-mono); font-size: 0.78rem; color: var(--ink); display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.fin-day:empty { display: none; }
 .leg-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .leg-head span:first-child { visibility: hidden; }
 @media (max-width: 520px) {
@@ -150,7 +153,6 @@ input:hover, select:hover, textarea:hover { border-color: var(--muted); }
   .leg .l-l { grid-column: 3; grid-row: 2; }
   .leg .leg-day { grid-column: 2 / 4; grid-row: 3; margin-top: 0; }
   .leg-head { display: none; }
-  .leg input[type="time"] { font-size: 0.95rem; }
   .legs::before { content: "Origen · Destino / calzos salida · llegada"; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 }
 .icon-btn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); line-height: 1; }
@@ -295,7 +297,7 @@ details.backup[open] summary { margin-bottom: 10px; }
         </div>
         <div class="field">
           <label for="f-pres">Presentación</label>
-          <input type="time" id="f-pres" required>
+          <input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" class="hhmm" id="f-pres" required>
         </div>
         <div class="field full">
           <span class="label">Jornada</span>
@@ -318,7 +320,7 @@ details.backup[open] summary { margin-bottom: 10px; }
       <div class="fields">
         <div class="field">
           <label for="f-fin">Término del PSV</label>
-          <input type="time" id="f-fin">
+          <input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" class="hhmm" id="f-fin">
           <span class="fin-day" id="fin-day" aria-live="polite"></span>
           <span class="hint">Vacío: llegada a calzos del último tramo.</span>
         </div>
@@ -495,8 +497,8 @@ details.backup[open] summary { margin-bottom: 10px; }
       '<span class="n"></span>' +
       '<input type="text" maxlength="4" class="l-o" aria-label="Origen" placeholder="SCL" value="' + esc(t.origen) + '">' +
       '<input type="text" maxlength="4" class="l-d" aria-label="Destino" placeholder="ANF" value="' + esc(t.destino) + '">' +
-      '<input type="time" class="l-s" aria-label="Salida de calzos" value="' + esc(t.salida) + '">' +
-      '<input type="time" class="l-l" aria-label="Llegada a calzos" value="' + esc(t.llegada) + '">' +
+      '<input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" class="hhmm l-s" aria-label="Salida de calzos" value="' + esc(t.salida) + '">' +
+      '<input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" class="hhmm l-l" aria-label="Llegada a calzos" value="' + esc(t.llegada) + '">' +
       '<button type="button" class="icon-btn" aria-label="Quitar tramo" title="Quitar tramo">✕</button>' +
       '<div class="leg-day" aria-live="polite"></div>';
     div.querySelector('button').addEventListener('click', function () { div.remove(); numerar(); actualizar(); });
@@ -581,14 +583,25 @@ details.backup[open] summary { margin-bottom: 10px; }
     var n = D.dia(t) - base;
     return n > 0 ? ' <span class="plus" title="Días después de la presentación">+' + n + (n === 1 ? ' día' : ' días') + '</span>' : '';
   }
+  function marcar(el, malo) { el.classList.toggle('bad', !!malo); el.setAttribute('aria-invalid', malo ? 'true' : 'false'); }
+  function formatoMalo(el) { return !!el.value && D.parseHora(el.value) == null && el !== document.activeElement; }
+
   function renderDias(entrada) {
     var sq = D.secuencia(entrada);
     var rows = $('legs').querySelectorAll('.leg:not(.leg-head)');
     rows.forEach(function (r, i) {
       var t = sq.tramos[i] || {};
+      var at = sq.atras.tramos[i] || {};
       var box = r.querySelector('.leg-day');
+      var inS = r.querySelector('.l-s'), inL = r.querySelector('.l-l');
+      marcar(inS, at.salida || formatoMalo(inS));
+      marcar(inL, at.llegada || formatoMalo(inL));
       var html = '';
-      if (t.salida != null) {
+      if (at.salida) {
+        html = '<span class="warn">La salida es anterior a la hora previa (' + (i ? 'llegada del tramo ' + i : 'presentación') + ').</span>';
+      } else if (at.llegada) {
+        html = '<span class="warn">La llegada es anterior a la salida.</span>';
+      } else if (t.salida != null) {
         html = '<span class="dd">' + diaCorto(t.salida) + '</span>';
         if (t.llegada != null && D.dia(t.llegada) !== D.dia(t.salida)) {
           html += '→ <span class="dd">' + diaCorto(t.llegada) + '</span>';
@@ -600,12 +613,45 @@ details.backup[open] summary { margin-bottom: 10px; }
       }
       box.innerHTML = html;
     });
+    marcar($('f-pres'), formatoMalo($('f-pres')));
+    marcar($('f-fin'), sq.atras.fin || formatoMalo($('f-fin')));
     var finT = sq.fin;
     if (finT == null) {
       for (var j = sq.tramos.length - 1; j >= 0; j--) { if (sq.tramos[j].llegada != null) { finT = sq.tramos[j].llegada; break; } }
     }
-    $('fin-day').innerHTML = finT != null ? diaCorto(finT) + ' · ' + hm(D.horaDelDia(finT)) + chipDias(finT, sq.base) : '';
+    if (sq.atras.fin) {
+      $('fin-day').innerHTML = '<span class="warn">El término es anterior a la última llegada a calzos.</span>';
+    } else {
+      $('fin-day').innerHTML = finT != null ? '<span>' + diaCorto(finT) + ' · ' + hm(D.horaDelDia(finT)) + '</span>' + chipDias(finT, sq.base) : '';
+    }
   }
+
+  /* Campos de hora en formato 24 h: se escriben solo números y los dos puntos se agregan solos */
+  function formatearHora(el, final) {
+    var v = el.value;
+    if (!final) {
+      if (/^\d{0,2}:\d{0,2}$/.test(v)) return;
+      var d = v.replace(/\D/g, '').slice(0, 4);
+      el.value = d.length > 2 ? d.slice(0, 2) + ':' + d.slice(2) : d;
+      return;
+    }
+    var m = /^(\d{1,2}):(\d{2})$/.exec(v);
+    if (m) { el.value = (m[1].length === 1 ? '0' : '') + m[1] + ':' + m[2]; return; }
+    var dg = v.replace(/\D/g, '').slice(0, 4);
+    if (!dg) el.value = '';
+    else if (dg.length <= 2) el.value = (dg.length === 1 ? '0' : '') + dg + ':00';
+    else if (dg.length === 3) el.value = '0' + dg[0] + ':' + dg.slice(1);
+    else el.value = dg.slice(0, 2) + ':' + dg.slice(2);
+  }
+  $('form').addEventListener('input', function (e) {
+    if (e.target.classList && e.target.classList.contains('hhmm')) formatearHora(e.target, false);
+  }, true);
+  $('form').addEventListener('focusout', function (e) {
+    if (e.target.classList && e.target.classList.contains('hhmm')) {
+      formatearHora(e.target, true);
+      setTimeout(actualizar, 0); // después del cambio de foco, para marcar formatos inválidos
+    }
+  });
 
   function actualizar() {
     var entrada = leerFormulario();

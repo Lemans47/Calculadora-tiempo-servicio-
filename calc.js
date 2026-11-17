@@ -131,27 +131,31 @@
     var tieneFin = !!(entrada.fin && String(entrada.fin).trim());
     if (tieneFin) secuencia.push({ k: 'fin', v: entrada.fin });
 
+    function nombreDe(s) {
+      return s.k === 'presentacion' ? 'la presentación'
+        : s.k === 'fin' ? 'el término del PSV'
+        : (s.k === 'salida' ? 'la salida' : 'la llegada') + ' del tramo ' + (s.i + 1);
+    }
+
     var abs = [];
-    var prev = null;
+    var prev = null, prevPaso = null;
     secuencia.forEach(function (s) {
       var h = parseHora(s.v);
       if (h == null) {
-        var nombre = s.k === 'presentacion' ? 'la hora de presentación'
-          : s.k === 'fin' ? 'la hora de término del PSV'
-          : (s.k === 'salida' ? 'la salida (calzos)' : 'la llegada (calzos)') + ' del tramo ' + (s.i + 1);
-        errores.push('Revisa ' + nombre + ' (formato HH:MM).');
+        errores.push('Revisa ' + nombreDe(s) + ' (formato HH:MM, 24 horas).');
         abs.push(null);
         return;
       }
       if (base == null) { abs.push(null); return; }
-      var t;
-      if (prev == null) t = base + h;
-      else {
-        t = dia(prev) * DIA + h;
-        if (t < prev) t += DIA;
+      var u = ubicar(prev, h, base);
+      if (u.atras) {
+        var txt = nombreDe(s);
+        errores.push(txt.charAt(0).toUpperCase() + txt.slice(1) + ' (' + hm(h) + ') es anterior a ' +
+          nombreDe(prevPaso) + ' (' + hm(horaDelDia(prev)) + ').');
       }
-      abs.push(t);
-      prev = t;
+      abs.push(u.t);
+      prev = u.t;
+      prevPaso = s;
     });
 
     if (errores.length) return { errores: errores, entrada: entrada };
@@ -193,6 +197,24 @@
   }
 
   /*
+   * Regla para ubicar una hora respecto de la anterior:
+   * - si es igual o posterior, es el mismo día;
+   * - si retrocede más de 4 h, se entiende que pasó la medianoche (día siguiente),
+   *   p. ej. 23:10 → 01:05;
+   * - si retrocede 4 h o menos, es un error de ingreso (p. ej. término 17:30 con
+   *   llegada 18:20): se deja en el mismo día y se marca "atras".
+   * Con el PSV máximo de 20 h nunca hay un salto real hacia adelante de más de 20 h.
+   */
+  var UMBRAL_RETROCESO = 4 * H;
+  function ubicar(prev, h, base) {
+    if (prev == null) return { t: base + h, atras: false };
+    var t = dia(prev) * DIA + h;
+    if (t >= prev) return { t: t, atras: false };
+    if (prev - t > UMBRAL_RETROCESO) return { t: t + DIA, atras: false };
+    return { t: t, atras: true };
+  }
+
+  /*
    * Ubica cada hora del formulario en su día, con la misma regla que construir():
    * si una hora es menor que la anterior, pasa al día siguiente. Tolera campos vacíos
    * (quedan en null) para poder mostrar el día mientras se completa el formulario.
@@ -200,19 +222,26 @@
   function secuencia(entrada) {
     var base = parseFecha(entrada.fecha);
     var prev = null;
+    var atras = { presentacion: false, tramos: [], fin: false };
     function paso(v) {
       var h = parseHora(v);
-      if (h == null || base == null) return null;
-      var t = prev == null ? base + h : dia(prev) * DIA + h;
-      if (prev != null && t < prev) t += DIA;
-      prev = t;
-      return t;
+      if (h == null || base == null) return { t: null, atras: false };
+      var u = ubicar(prev, h, base);
+      prev = u.t;
+      return u;
     }
-    var res = { base: base == null ? null : dia(base), presentacion: paso(entrada.presentacion), tramos: [], fin: null };
+    var p = paso(entrada.presentacion);
+    var res = { base: base == null ? null : dia(base), presentacion: p.t, tramos: [], fin: null, atras: atras };
     (entrada.tramos || []).forEach(function (t) {
-      res.tramos.push({ salida: paso(t.salida), llegada: paso(t.llegada) });
+      var s = paso(t.salida), l = paso(t.llegada);
+      res.tramos.push({ salida: s.t, llegada: l.t });
+      atras.tramos.push({ salida: s.atras, llegada: l.atras });
     });
-    if (entrada.fin && String(entrada.fin).trim()) res.fin = paso(entrada.fin);
+    if (entrada.fin && String(entrada.fin).trim()) {
+      var f = paso(entrada.fin);
+      res.fin = f.t;
+      atras.fin = f.atras;
+    }
     return res;
   }
 
