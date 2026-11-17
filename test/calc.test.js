@@ -133,3 +133,18 @@ test('Errores de formato', () => {
   const s = D.construir({ fecha: '2026-03-02', presentacion: '25:00', tramos: [{ salida: '08:00', llegada: '' }] });
   assert.ok(s.errores.length >= 2);
 });
+
+test('secuencia ubica cada tramo en su día, aun con campos vacíos', () => {
+  const sq = D.secuencia({
+    fecha: '2026-11-11', presentacion: '21:30', fin: '06:35',
+    tramos: [{ salida: '22:30', llegada: '01:55' }, { salida: '02:45', llegada: '' }, { salida: '', llegada: '06:05' }]
+  });
+  const d0 = D.dia(D.parseFecha('2026-11-11'));
+  assert.equal(sq.base, d0);
+  assert.equal(D.dia(sq.tramos[0].salida), d0);
+  assert.equal(D.dia(sq.tramos[0].llegada), d0 + 1);
+  assert.equal(D.dia(sq.tramos[1].salida), d0 + 1);
+  assert.equal(sq.tramos[1].llegada, null);
+  assert.equal(D.dia(sq.tramos[2].llegada), d0 + 1);
+  assert.equal(D.dia(sq.fin), d0 + 1);
+});

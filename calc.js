@@ -192,6 +192,30 @@
     };
   }
 
+  /*
+   * Ubica cada hora del formulario en su día, con la misma regla que construir():
+   * si una hora es menor que la anterior, pasa al día siguiente. Tolera campos vacíos
+   * (quedan en null) para poder mostrar el día mientras se completa el formulario.
+   */
+  function secuencia(entrada) {
+    var base = parseFecha(entrada.fecha);
+    var prev = null;
+    function paso(v) {
+      var h = parseHora(v);
+      if (h == null || base == null) return null;
+      var t = prev == null ? base + h : dia(prev) * DIA + h;
+      if (prev != null && t < prev) t += DIA;
+      prev = t;
+      return t;
+    }
+    var res = { base: base == null ? null : dia(base), presentacion: paso(entrada.presentacion), tramos: [], fin: null };
+    (entrada.tramos || []).forEach(function (t) {
+      res.tramos.push({ salida: paso(t.salida), llegada: paso(t.llegada) });
+    });
+    if (entrada.fin && String(entrada.fin).trim()) res.fin = paso(entrada.fin);
+    return res;
+  }
+
   function diasDe(t0, t1) {
     var out = [];
     var last = t1 > t0 ? dia(t1 - 1) : dia(t0);
@@ -530,6 +554,7 @@
   return {
     LIMITES: LIMITES,
     construir: construir,
+    secuencia: secuencia,
     evaluar: evaluar,
     tvPorDia: tvPorDia,
     nochesTocadas: nochesTocadas,

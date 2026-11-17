@@ -1,5 +1,5 @@
 /* Service worker: la app funciona sin conexión una vez abierta. */
-const VERSION = 'dan121-v2';
+const VERSION = 'dan121-v3';
 const SHELL = [
   '/', '/index.html', '/calc.js', '/manifest.webmanifest',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png',
@@ -46,15 +46,12 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Archivos propios: caché y actualización en segundo plano.
+  // Archivos propios: red primero (página y lógica siempre de la misma versión), caché sin conexión.
   if (url.origin === self.location.origin) {
     e.respondWith(
-      caches.open(VERSION).then((c) =>
-        c.match(req).then((hit) => {
-          const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
-          return hit || net;
-        })
-      )
+      fetch(req)
+        .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; })
+        .catch(() => caches.match(req))
     );
   }
 });
